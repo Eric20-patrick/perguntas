@@ -1,7 +1,4 @@
 {
-    "cSpell.words": [
-        "audi",
-        "audiência",
-        "ncia"
-    ]
+  "editor.formatOnSave": true,
+  "prettier.requireConfig": true
 }

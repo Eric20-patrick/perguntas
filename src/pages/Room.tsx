@@ -1,27 +1,46 @@
 import { FormEvent, useState } from 'react';
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom';
 import chatImg from '../assets/images/chat.png';
 import { Question } from '../components/Question';
 import { Button } from '../components/Button';
 import { RoomCode } from '../components/roomCode';
 import { useAuth } from '../hooks/useAuth';
 import { useRoom } from '../hooks/useRoom';
-import { database } from '../services/firebase';
+import { getDatabase, ref, push, update } from 'firebase/database';
 
 import '../styles/room.scss';
 
-
 type RoomParams = {
   id: string;
-}
+};
 
 export function Room() {
   const { user } = useAuth();
   const params = useParams<RoomParams>();
   const [newQuestion, setNewQuestion] = useState('');
   const roomId = params.id;
+  const [responses, setResponses] = useState<Record<string, string>>({});
 
-  const { title, questions } = useRoom(roomId)
+  const { title, questions } = useRoom(roomId);
+
+  async function handleAnswerQuestion(questionId: string) {
+    const response = responses[questionId]?.trim();
+    if (!response) return;
+
+    const db = getDatabase();
+    const questionRef = ref(db, `rooms/${roomId}/questions/${questionId}`);
+
+    await update(questionRef, {
+      answer: response,
+      isAnswered: true,
+      answerAuthor: {
+        name: user?.name,
+        avatar: user?.avatar,
+      },
+    });
+
+    setResponses((prev) => ({ ...prev, [questionId]: '' }));
+  }
 
   async function handleSendQuestion(event: FormEvent) {
     event.preventDefault();
@@ -41,29 +60,23 @@ export function Room() {
         avatar: user.avatar,
       },
       isHighlighted: false,
-      isAnswered: false
+      isAnswered: false,
     };
 
-    await database.ref(`rooms/${roomId}/questions`).push(question);
+    const db = getDatabase();
+    const questionRef = ref(db, `rooms/${roomId}/questions`);
+    await push(questionRef, question);
 
     setNewQuestion('');
-  }
-
-  async function handleLikeQuestion(questionId: string, likeId: string | undefined) {
-    if (likeId) {
-      await database.ref(`rooms/${roomId}/questions/${questionId}/likes/${likeId}`).remove()
-    } else {
-      await database.ref(`rooms/${roomId}/questions/${questionId}/likes`).push({
-        authorId: user?.id,
-      })
-    }
   }
 
   return (
     <div id="page-room">
       <header>
         <div className="content">
-          <img src={chatImg} alt="Letmeask"/>
+          <a href="/">
+            <img src={chatImg} height="100px" alt="Letmeask" />
+          </a>
           <RoomCode code={roomId} />
         </div>
       </header>
@@ -71,55 +84,123 @@ export function Room() {
       <main>
         <div className="room-title">
           <h1>Sala {title}</h1>
-         { questions.length > 0 && <span>{questions.length} pergunta(s)</span> }
+          {questions.length > 0 && <span>{questions.length} pergunta(s)</span>}
         </div>
 
         <form onSubmit={handleSendQuestion}>
           <textarea
             placeholder="O que você quer perguntar?"
-            onChange={event => setNewQuestion(event.target.value)}
+            onChange={(event) => setNewQuestion(event.target.value)}
             value={newQuestion}
           />
 
           <div className="form-footer">
-            { user ? (
+            {user ? (
               <div className="user-info">
                 <img src={user.avatar} alt={user.name} />
                 <span>{user.name}</span>
               </div>
             ) : (
-              <span>Para enviar uma pergunta, <button>faça seu login</button>.</span>
-            ) }
-            <Button type="submit" disabled={!user}>Enviar pergunta</Button>
+              <span>
+                Para enviar uma pergunta, <button>faça seu login</button>.
+              </span>
+            )}
+            <Button type="submit" disabled={!user}>
+              Enviar pergunta
+            </Button>
           </div>
         </form>
 
         <div className="question-list">
-          {questions.map(question => {
-            return (
-              <Question
-                key={question.id}
-                content={question.content}
-                author={question.author}
-                isAnswered={question.isAnswered}
-                isHighlighted={question.isHighlighted}
-              >
-                {!question.isAnswered && (
-                  <button
-                    className={`like-button ${question.likeId ? 'liked' : ''}`}
-                    type="button"
-                    aria-label="Marcar como gostei"
-                    onClick={() => handleLikeQuestion(question.id, question.likeId)}
+          {questions.map((question) => (
+            <Question
+              key={question.id}
+              content={question.content}
+              author={question.author}
+              isAnswered={question.isAnswered}
+              isHighlighted={question.isHighlighted}
+            >
+              {!question.isAnswered && (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginTop: 8,
+                    }}
                   >
-                    { question.likeCount > 0 && <span>{question.likeCount}</span> }
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M7 22H4C3.46957 22 2.96086 21.7893 2.58579 21.4142C2.21071 21.0391 2 20.5304 2 20V13C2 12.4696 2.21071 11.9609 2.58579 11.5858C2.96086 11.2107 3.46957 11 4 11H7M14 9V5C14 4.20435 13.6839 3.44129 13.1213 2.87868C12.5587 2.31607 11.7956 2 11 2L7 11V22H18.28C18.7623 22.0055 19.2304 21.8364 19.5979 21.524C19.9654 21.2116 20.2077 20.7769 20.28 20.3L21.66 11.3C21.7035 11.0134 21.6842 10.7207 21.6033 10.4423C21.5225 10.1638 21.3821 9.90629 21.1919 9.68751C21.0016 9.46873 20.7661 9.29393 20.5016 9.17522C20.2371 9.0565 19.9499 8.99672 19.66 9H14Z" stroke="#737380" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                )}
-              </Question>
-            );
-          })}
+                    <input
+                      type="text"
+                      placeholder="Responder..."
+                      value={responses[question.id] || ''}
+                      onChange={(e) =>
+                        setResponses((prev) => ({
+                          ...prev,
+                          [question.id]: e.target.value,
+                        }))
+                      }
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        borderRadius: 8,
+                        border: '1px solid #ccc',
+                      }}
+                    />
+                    <button
+                      onClick={() => handleAnswerQuestion(question.id)}
+                      style={{
+                        marginLeft: 8,
+                        backgroundColor: 'red',
+                        color: '#fff',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Enviar
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {question.answer && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '8px',
+                    backgroundColor: '#f9f9f9',
+                    borderLeft: '4px solid #4caf50',
+                    borderRadius: '4px',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  <strong>Resposta:</strong> {question.answer}
+                  {question.answerAuthor && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <img
+                        src={question.answerAuthor.avatar}
+                        alt={question.answerAuthor.name}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          marginRight: 8,
+                        }}
+                      />
+                      <span>{question.answerAuthor.name}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Question>
+          ))}
         </div>
       </main>
     </div>

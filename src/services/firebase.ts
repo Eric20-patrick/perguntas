@@ -1,22 +1,25 @@
-import firebase from 'firebase/app';
+// Importação correta do Firebase v9+
+import { initializeApp } from "firebase/app"; // Função de inicialização do Firebase
+import { getAuth, GoogleAuthProvider } from "firebase/auth"; // Função de autenticação e provider do Google
+import { getDatabase } from "firebase/database"; // Função para banco de dados em tempo real
 
-import 'firebase/auth';
-import 'firebase/database';
-
+// Configuração do Firebase
 const firebaseConfig = {
-    apiKey: process.env.REACT_APP_API_KEY,
-    authDomain: process.env.REACT_APP_AUTH_DOMAIN,
-    databaseURL: process.env.REACT_APP_DATABASE_URL, 
-    projectId: process.env.REACT_APP_PROJECT_ID,
-    storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-    messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
-    appId: process.env.REACT_APP_APP_ID 
-  };
-
-  firebase.initializeApp(firebaseConfig);
+  apiKey: "AIzaSyD0BYkeQPwnRUpeL8vjVJP1YLpafsBd-8g",
+  authDomain: "lete-88508.firebaseapp.com",
+  databaseURL: "https://lete-88508-default-rtdb.firebaseio.com",
+  projectId: "lete-88508",
+  storageBucket: "lete-88508.firebasestorage.app",
+  messagingSenderId: "605033880967",
+  appId: "1:605033880967:web:9886ddfc014845d1104722"
+};
 
 
-  const auth = firebase.auth();
-  const database = firebase.database();
+const app = initializeApp(firebaseConfig);
 
-  export {firebase, auth, database}
+
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const database = getDatabase(app);
+
+export { auth, provider, database }; 
